@@ -29,6 +29,12 @@ extern float CordX, CordY, CordZ;
 #include "Text.h"
 #include "GUI.h"
 
+// Musica
+#include <mmsystem.h> 
+
+// Enlazar con la biblioteca Winmm.lib
+#pragma comment(lib, "Winmm.lib")
+
 class DXRR {
 
 private:
@@ -122,6 +128,8 @@ public:
 	Text* textEn;
 	string Enemigos = "0";
 
+	// Para efectos de sonido
+	int sonido = 0;
 
 	DXRR(HWND hWnd, int Ancho, int Alto)
 	{
@@ -138,6 +146,7 @@ public:
 		backBufferTarget = 0;
 		izqder = 0;
 		arriaba = 0;
+		sonido = 0;
 
 		// Variables para jugabilidad
 		danio = 0;
@@ -178,6 +187,7 @@ public:
 
 		inicializarBillboards();
 		inicializarGUI();
+		inicializarSonido();
 	}
 
 	void inicializarBillboards()
@@ -194,6 +204,20 @@ public:
 		textPt = new Text(d3dDevice, d3dContext, 3.6f, 1.2f, L"Assets/GUI/font_2.png", XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 		textAt = new Text(d3dDevice, d3dContext, 3.6f, 1.2f, L"Assets/GUI/font_2.png", XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 		textEn = new Text(d3dDevice, d3dContext, 3.6f, 1.2f, L"Assets/GUI/font_2.png", XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+	}
+
+	void inicializarSonido()
+	{
+		switch (sonido) 
+		{
+			case 0:
+
+				playMusic("Assets/Sonido/ambiental.wav");
+				break;
+			case 1:
+				//playMusic("Assets/Sonido/pelea.wav");
+				break;
+		}
 	}
 
 	~DXRR()
@@ -801,6 +825,28 @@ public:
 			uv3[j + 24].v = .75;
 			uv4[j + 24].v = 1;
 		}
+	}
+
+	void setVolume(int volume) {
+		// El volumen va de 0 a 1000
+		if (volume < 0) volume = 0;
+		if (volume > 1000) volume = 1000;
+
+		std::string command = "setaudio bgm volume to " + std::to_string(volume);
+		mciSendStringA(command.c_str(), NULL, 0, NULL);
+	}
+
+	void playMusic(const char* filename) {
+		std::string command = "open \"" + std::string(filename) + "\" type mpegvideo alias bgm";
+		mciSendStringA(command.c_str(), NULL, 0, NULL);
+		mciSendStringA("play bgm repeat", NULL, 0, NULL);
+
+		setVolume(999);
+	}
+
+	void stopMusic() {
+		mciSendStringA("stop bgm", NULL, 0, NULL);
+		mciSendStringA("close bgm", NULL, 0, NULL);
 	}
 
 };
