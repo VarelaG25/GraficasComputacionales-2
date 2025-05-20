@@ -98,7 +98,10 @@ public:
 
 	float coordenadas[3] = { 0.0f, 0.0f, 0.0f };
 
-
+	// Variables logica de colisiones
+	float danio = 0;
+	int vida = 4;
+	WCHAR* rutaVida = L"";
 
 	DXRR(HWND hWnd, int Ancho, int Alto)
 	{
@@ -115,6 +118,11 @@ public:
 		backBufferTarget = 0;
 		izqder = 0;
 		arriaba = 0;
+
+		// Variables para jugabilidad
+		danio = 0;
+		vida = 4;
+		rutaVida = L"Assets/Billboards/vida4.jpg";
 
 		// Iniciar escena
 		IniciaD3D(hWnd);
@@ -142,11 +150,13 @@ public:
 		pozo = new ModeloRR(d3dDevice, d3dContext, "Assets/Modelos/pozo.obj", L"Assets/Modelos/pozo.png", L"Assets/Modelos/NoSpecular.png", -50, -125);
 		torre = new ModeloRR(d3dDevice, d3dContext, "Assets/Modelos/torre.obj", L"Assets/Modelos/torre.png", L"Assets/Modelos/NoSpecular.png", 120, -110);
 		vaca = new ModeloRR(d3dDevice, d3dContext, "Assets/Modelos/vaca.obj", L"Assets/Modelos/vaca.png", L"Assets/Modelos/NoSpecular.png", -70, -130);
-		// Billboards
-		// (textura, normal map, device, context, scale)
-		billboard = new BillboardRR(L"Assets/Billboards/vida2.jpg", L"Assets/Billboards/NoNormal.jpg", d3dDevice, d3dContext, 1);
-		//animacion();
 
+		inicializarBillboards();
+	}
+
+	void inicializarBillboards()
+	{
+		billboard = new BillboardRR(rutaVida, L"Assets/Billboards/NoNormal.jpg", d3dDevice, d3dContext, 1);
 	}
 
 	~DXRR()
@@ -410,6 +420,8 @@ public:
 
 	}
 
+	// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 	void Render()
 	{
 		if (d3dContext == 0) return;
@@ -422,6 +434,19 @@ public:
 		PresentFrame();         // Mostrar frame
 		/*RenderUI();*/
 	}
+
+	void UpdateSceneVariables()
+	{
+		static float angle = 0.0f;
+		angle += 0.005f;
+		if (angle >= 360.0f) angle = 0.0f;
+
+		float sphere[3] = { 0, 0, 0 };
+		float prevPos[3] = { camara->posCam.x, camara->posCam.z, camara->posCam.z };
+		bool collide = false;
+
+	}
+
 
 	void ClearBuffers()
 	{
@@ -448,23 +473,43 @@ public:
 		TurnOnDepth();
 	}
 
-	void UpdateSceneVariables()
+	void logicCollision()
 	{
-		static float angle = 0.0f;
-		angle += 0.005f;
-		if (angle >= 360.0f) angle = 0.0f;
+		if (vida <= 0) {
+			OutputDebugString(L"Sin vidas\n");
+			return;
+		}
 
-		float sphere[3] = { 0, 0, 0 };
-		float prevPos[3] = { camara->posCam.x, camara->posCam.z, camara->posCam.z };
-		bool collide = false;
+		bool ahoraDentroTorre = !isPointOutsideSphere(camara->getPos(), torre->getSphere(20.0f));
 
+		if (ahoraDentroTorre && !dentroTorre)
+		{
+			OutputDebugString(L"Tocando la colisión\n");
+			dentroTorre = true;
+			vida--;
+
+			switch (vida)
+			{
+			case 3:
+				rutaVida = L"Assets/Billboards/vida3.jpg";
+				break;
+			case 2:
+				rutaVida = L"Assets/Billboards/vida2.jpg";
+				break;
+			case 1:
+				rutaVida = L"Assets/Billboards/vida1.jpg";
+				break;
+			}
+
+			inicializarBillboards(); // recarga la textura de vida
+		}
+		else if (!ahoraDentroTorre && dentroTorre)
+		{
+			// Restablece el estado para poder detectar la siguiente entrada
+			dentroTorre = false;
+		}
 	}
 
-	void PresentFrame()
-	{
-		// Presentar el contenido
-		swapChain->Present(1, 0);
-	}
 
 	void RenderScene()
 	{
@@ -488,24 +533,18 @@ public:
 
 		// Billboards
 
-		billboard->Draw(camara->vista, camara->proyeccion, camara->posCam, 0, 0, terreno->Superficie(0,0), 5, uv1, uv2, uv3, uv4, frameBillboard);
+		billboard->DrawStatic(camara->vista, camara->proyeccion, camara->posCam, 0, 0, terreno->Superficie(0, 0), 5);
 
 		// ----------------------------------------------------------------------------------------------------------------------
 	}
 
-	void logicCollision()
+	void PresentFrame()
 	{
-		bool ahoraDentroTorre = !isPointOutsideSphere(camara->getPos(), torre->getSphere(20.0f));
-
-		if (ahoraDentroTorre && !dentroTorre) {
-			OutputDebugString(L"Tocando la colisión\n");
-			dentroTorre = true;
-		}
-		else if (!ahoraDentroTorre && dentroTorre) {
-			OutputDebugString(L"Saliste de la colisión\n");
-			dentroTorre = false;
-		}
+		// Presentar el contenido
+		swapChain->Present(1, 0);
 	}
+
+	// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 	void Update(float deltaTime)
 	{
@@ -514,7 +553,7 @@ public:
 
 		camara->UpdateCam(vel * deltaTime, arriaba, izqder, strafe * deltaTime);
 
-		
+
 
 		// Actualizar posición Y basada en el terreno
 		camara->posCam.y = terreno->Superficie(camara->posCam.x, camara->posCam.z) + 2.0f;

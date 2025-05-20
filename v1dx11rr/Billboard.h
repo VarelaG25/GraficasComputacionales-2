@@ -421,6 +421,85 @@ public:
 
 	}
 
+	void DrawStatic(D3DXMATRIX vista, D3DXMATRIX proyeccion, D3DXVECTOR3 poscam, float xx, float zz, float posy, float escala)
+	{
+		posx = xx;
+		posz = zz;
+		vertices = new VertexComponent[4];
+
+		// Coordenadas UV fijas (toda la textura)
+		float u0 = 0.0f, v0 = 0.0f;
+		float u1 = 1.0f, v1 = 1.0f;
+
+		// Posiciones del billboard
+		vertices[0].pos = D3DXVECTOR3(0, 0, -1 * escala);
+		vertices[0].UV = D3DXVECTOR2(u0, v1);
+
+		vertices[1].pos = D3DXVECTOR3(0, 2 * escala, -1 * escala);
+		vertices[1].UV = D3DXVECTOR2(u0, v0);
+
+		vertices[2].pos = D3DXVECTOR3(0, 2 * escala, 1 * escala);
+		vertices[2].UV = D3DXVECTOR2(u1, v0);
+
+		vertices[3].pos = D3DXVECTOR3(0, 0, 1 * escala);
+		vertices[3].UV = D3DXVECTOR2(u1, v1);
+
+		// Crear vertex buffer
+		D3D11_BUFFER_DESC vertexDesc = {};
+		vertexDesc.Usage = D3D11_USAGE_DEFAULT;
+		vertexDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		vertexDesc.ByteWidth = sizeof(VertexComponent) * 4;
+
+		D3D11_SUBRESOURCE_DATA resourceData = {};
+		resourceData.pSysMem = vertices;
+
+		d3dDevice->CreateBuffer(&vertexDesc, &resourceData, &vertexBuffer);
+
+		delete[] vertices;
+
+		UINT stride = sizeof(VertexComponent);
+		UINT offset = 0;
+
+		d3dContext->IASetInputLayout(inputLay);
+		d3dContext->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
+		d3dContext->IASetIndexBuffer(indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+		d3dContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		d3dContext->VSSetShader(VertexShaderVS, 0, 0);
+		d3dContext->PSSetShader(solidColorPS, 0, 0);
+		d3dContext->PSSetShaderResources(0, 1, &colorMap);
+		d3dContext->PSSetShaderResources(1, 1, &normalMap);
+		d3dContext->PSSetSamplers(0, 1, &colorMapSampler);
+
+		// Billboarding: rotar hacia cámara en eje Y
+		float difz = poscam.z - posz;
+		float difx = poscam.x - posx;
+		float dist = sqrt(difz * difz + difx * difx);
+		float angle = acos(difx / dist);
+
+		D3DXMATRIX rotationMat;
+		D3DXMatrixIdentity(&rotationMat);
+		rotationMat._11 = rotationMat._33 = difx / dist;
+		rotationMat._13 = difz / dist;
+		rotationMat._31 = -rotationMat._13;
+
+		D3DXMATRIX translationMat;
+		D3DXMatrixTranslation(&translationMat, posx, posy, posz);
+
+		D3DXMATRIX worldMat = rotationMat * translationMat;
+		D3DXMatrixTranspose(&worldMat, &worldMat);
+
+		d3dContext->UpdateSubresource(worldCB, 0, 0, &worldMat, 0, 0);
+		d3dContext->UpdateSubresource(viewCB, 0, 0, &vista, 0, 0);
+		d3dContext->UpdateSubresource(projCB, 0, 0, &proyeccion, 0, 0);
+
+		d3dContext->VSSetConstantBuffers(0, 1, &worldCB);
+		d3dContext->VSSetConstantBuffers(1, 1, &viewCB);
+		d3dContext->VSSetConstantBuffers(2, 1, &projCB);
+
+		d3dContext->DrawIndexed(6, 0, 0);
+	}
+
 	void DrawHUD(const D3DXMATRIX& view, const D3DXMATRIX& projection,
 		float x, float y, float z, float scale,
 		vector2* uv1, vector2* uv2, vector2* uv3, vector2* uv4,
