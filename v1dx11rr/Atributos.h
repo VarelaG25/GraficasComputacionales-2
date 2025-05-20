@@ -1,5 +1,4 @@
 #pragma once
-#include <D3DX10.h>
 
 
 class Atributos
@@ -38,9 +37,3 @@ public:
     }
 };
 
-class ObjetoInteractivo {
-public:
-    virtual D3DXVECTOR3 getPosicion() = 0;
-    virtual float getRadio() = 0;
-    virtual void onCollision() = 0;
-};

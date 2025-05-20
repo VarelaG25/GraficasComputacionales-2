@@ -1,18 +1,10 @@
+#include "loadModel.h"
 #ifndef _modelo
 #define _modelo
 
 //#define _XM_NO_INTRINSICS_
 
-#include <d3dx9.h>
-#include <d3d11.h>
-#include <d3dx11.h>
-#include <DxErr.h>
-#include <D3Dcompiler.h>
-#include <d3dx10math.h>
-#include <conio.h>
-#include <vector>
-#include <iostream>
-#include "loadModel.h"
+
 
 using namespace std;
 

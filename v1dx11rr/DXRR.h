@@ -16,6 +16,8 @@ extern float CordX, CordY, CordZ;
 #include <d2d1.h>
 #include <dwrite.h>
 #include <algorithm>
+#include <string>
+#include <vector>
 
 #pragma comment(lib, "d2d1")
 #pragma comment(lib, "dwrite")
@@ -23,12 +25,15 @@ extern float CordX, CordY, CordZ;
 // Incluir las bibliotecas necesarias
 #include <windows.h>
 #include <dxgi.h>
+#include <iostream>
 
 class DXRR {
 
 private:
 	int ancho;
 	int alto;
+	bool dentroTorre = false;
+	bool dentroCastillo = false;
 public:
 	HINSTANCE hInstance;
 	HWND hWnd;
@@ -92,6 +97,8 @@ public:
 	CXACT3Util m_XACT3;
 
 	float coordenadas[3] = { 0.0f, 0.0f, 0.0f };
+
+
 
 	DXRR(HWND hWnd, int Ancho, int Alto)
 	{
@@ -411,6 +418,7 @@ public:
 		UpdateCamera();         // Movimiento y ajuste de altura
 		RenderSkydome();        // Cielo sin profundidad 
 		RenderScene();          // Escena 3D
+		logicCollision();		// Implementa la logica de las colisiones
 		PresentFrame();         // Mostrar frame
 		/*RenderUI();*/
 	}
@@ -485,6 +493,20 @@ public:
 		// ----------------------------------------------------------------------------------------------------------------------
 	}
 
+	void logicCollision()
+	{
+		bool ahoraDentroTorre = !isPointOutsideSphere(camara->getPos(), torre->getSphere(20.0f));
+
+		if (ahoraDentroTorre && !dentroTorre) {
+			OutputDebugString(L"Tocando la colisión\n");
+			dentroTorre = true;
+		}
+		else if (!ahoraDentroTorre && dentroTorre) {
+			OutputDebugString(L"Saliste de la colisión\n");
+			dentroTorre = false;
+		}
+	}
+
 	void Update(float deltaTime)
 	{
 		float prevX = camara->posCam.x;
@@ -492,10 +514,7 @@ public:
 
 		camara->UpdateCam(vel * deltaTime, arriaba, izqder, strafe * deltaTime);
 
-		if (isPointInsideSphere(camara->getPos(), pozo->getSphere(30.0f)))
-		{
-			cout << "Colision";
-		}
+		
 
 		// Actualizar posición Y basada en el terreno
 		camara->posCam.y = terreno->Superficie(camara->posCam.x, camara->posCam.z) + 2.0f;
@@ -524,8 +543,8 @@ public:
 	}
 
 	bool Colision() {
-		return isPointInsideSphere(camara->getPos(), vaca->getSphere(30.0f));
-		return isPointInsideSphere(camara->getPos(), pozo->getSphere(30.0f));
+		return isPointInsideSphere(camara->getPos(), vaca->getSphere(30.0f)) ||
+			isPointInsideSphere(camara->getPos(), pozo->getSphere(30.0f));
 	}
 
 	//Activa el alpha blend para dibujar con transparencias
