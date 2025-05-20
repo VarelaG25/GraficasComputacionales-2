@@ -26,6 +26,8 @@ extern float CordX, CordY, CordZ;
 #include <windows.h>
 #include <dxgi.h>
 #include <iostream>
+#include "Text.h"
+#include "GUI.h"
 
 class DXRR {
 
@@ -102,6 +104,24 @@ public:
 	float danio = 0;
 	int vida = 4;
 	WCHAR* rutaVida = L"";
+	WCHAR* rutaVidaHud = L"";
+
+	// Skybox
+	float counterDiaNoche;
+	float gradient;
+
+	// GUI
+	GUI* HUD1;
+	GUI* HUD2;
+	GUI* VIDA;
+
+	Text* textPt;
+	string Puntos = "0";
+	Text* textAt;
+	string Ataque = "0";
+	Text* textEn;
+	string Enemigos = "0";
+
 
 	DXRR(HWND hWnd, int Ancho, int Alto)
 	{
@@ -123,6 +143,11 @@ public:
 		danio = 0;
 		vida = 4;
 		rutaVida = L"Assets/Billboards/vida4.jpg";
+		rutaVidaHud = L"Assets/GUI/vida4.png";
+
+		// Variables para skybox
+		counterDiaNoche = 0;
+		gradient = 0;
 
 		// Iniciar escena
 		IniciaD3D(hWnd);
@@ -135,7 +160,7 @@ public:
 		terreno = new TerrenoRR(300, 300, d3dDevice, d3dContext);
 
 		// Skydome
-		skydome = new SkyDome(32, 32, 100.0f, &d3dDevice, &d3dContext, L"cielo.png");
+		skydome = new SkyDome(32, 32, 100.0f, &d3dDevice, &d3dContext, L"Assets/Skybox/dia.jpg", L"Assets/Skybox/noche.png");
 
 		// Modelos
 		// (device, context, obj, textura, specular, pos X, pos Y)
@@ -152,11 +177,23 @@ public:
 		vaca = new ModeloRR(d3dDevice, d3dContext, "Assets/Modelos/vaca.obj", L"Assets/Modelos/vaca.png", L"Assets/Modelos/NoSpecular.png", -70, -130);
 
 		inicializarBillboards();
+		inicializarGUI();
 	}
 
 	void inicializarBillboards()
 	{
 		billboard = new BillboardRR(rutaVida, L"Assets/Billboards/NoNormal.jpg", d3dDevice, d3dContext, 1);
+	}
+
+	void inicializarGUI()
+	{
+		HUD1 = new GUI(d3dDevice, d3dContext, 0.5f, 0.5f, L"Assets/GUI/hud_layout_1.png");
+		HUD2 = new GUI(d3dDevice, d3dContext, 0.5f, 0.5f, L"Assets/GUI/hud_layout_2.png");
+		VIDA = new GUI(d3dDevice, d3dContext, 0.4f, 0.4f, rutaVidaHud);
+
+		textPt = new Text(d3dDevice, d3dContext, 3.6f, 1.2f, L"Assets/GUI/font_2.png", XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+		textAt = new Text(d3dDevice, d3dContext, 3.6f, 1.2f, L"Assets/GUI/font_2.png", XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+		textEn = new Text(d3dDevice, d3dContext, 3.6f, 1.2f, L"Assets/GUI/font_2.png", XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 	}
 
 	~DXRR()
@@ -466,9 +503,16 @@ public:
 
 	void RenderSkydome()
 	{
+		gradient += (1.0f / 1800.0f);
+		if (gradient >= 1.0f) {
+			gradient = 0.0;
+		}
+		counterDiaNoche += (1.0f / 60.0f);
+		if (counterDiaNoche >= 60.0f)
+			counterDiaNoche = 0;
 		skydome->Update(camara->vista, camara->proyeccion);
 		TurnOffDepth();
-		skydome->Render(camara->posCam);
+		skydome->Render(camara->posCam, counterDiaNoche, gradient);
 		d3dContext->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
 		TurnOnDepth();
 	}
@@ -491,17 +535,17 @@ public:
 			switch (vida)
 			{
 			case 3:
-				rutaVida = L"Assets/Billboards/vida3.jpg";
+				rutaVidaHud = L"Assets/GUI/vida3.png";
 				break;
 			case 2:
-				rutaVida = L"Assets/Billboards/vida2.jpg";
+				rutaVidaHud = L"Assets/GUI/vida2.png";
 				break;
 			case 1:
-				rutaVida = L"Assets/Billboards/vida1.jpg";
+				rutaVidaHud = L"Assets/GUI/vida1.png";
 				break;
 			}
 
-			inicializarBillboards(); // recarga la textura de vida
+			inicializarGUI(); // recarga la textura de vida
 		}
 		else if (!ahoraDentroTorre && dentroTorre)
 		{
@@ -534,6 +578,15 @@ public:
 		// Billboards
 
 		billboard->DrawStatic(camara->vista, camara->proyeccion, camara->posCam, 0, 0, terreno->Superficie(0, 0), 5);
+
+		// HUD
+		HUD1->Draw(-0.75f, 0.75f);
+		HUD2->Draw(0.6f, -0.75f);
+		VIDA->Draw(-0.8f, -0.75f);
+
+		textPt->DrawText(-0.5f, 0.9f, Puntos, 0.02f);
+		textAt->DrawText(-0.45f, 0.7f, Puntos, 0.02f);
+		textEn->DrawText(0.5f, -0.85f, Puntos, 0.02f);
 
 		// ----------------------------------------------------------------------------------------------------------------------
 	}

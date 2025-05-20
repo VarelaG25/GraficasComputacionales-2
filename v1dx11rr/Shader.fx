@@ -19,6 +19,11 @@ cbuffer cbChangeOnResize : register(b2)
 	matrix projMatrix;
 };
 
+cbuffer cbChangesOccasionally : register(b3)
+{
+    float time;
+};
+
 struct VS_Input
 {
 	float4 pos : POSITION;
@@ -57,38 +62,38 @@ PS_Input VS_Main(VS_Input vertex)
 
 float4 PS_Main(PS_Input pix) : SV_TARGET
 {
-	float4 fColor = float4(1,0,0,1);
+    float4 fColor = float4(1, 0, 0, 1);
 
-	float3 ambient = float3(0.1f, 0.1f, 0.1f);
+    float3 ambient = float3(0.1f, 0.1f, 0.1f);
 
-	float4 text = colorMap.Sample(colorSampler, pix.tex0);
-	float4 text2 = colorMap2.Sample(colorSampler, pix.tex0);
-	float4 alphaBlend = blendMap.Sample(colorSampler, pix.blendTex);
-	float4 textf = (text * alphaBlend) + ((1.0 - alphaBlend) * text2);
+    // Texturas base y mezcla
+    float4 text = colorMap.Sample(colorSampler, pix.tex0);
+    float4 text2 = colorMap2.Sample(colorSampler, pix.tex0);
+    float4 alphaBlend = blendMap.Sample(colorSampler, pix.blendTex);
+    float4 textf = (text * alphaBlend) + ((1.0 - alphaBlend) * text2);
 
-	float3 DiffuseDirection = float3(0.5f, -1.0f, 0.0f);
-	float4 DiffuseColor = float4(1.0f, 1.0f, 1.0f, 1.0f);
+    // Dirección de la luz
+    float3 lightDir = normalize(float3(0.5f, -1.0f, 0.0f)); // O puedes hacerla uniforme
 
-    // Leer normal map (de [0,1] a [-1,1])
+    // Normal map
     float3 normalSample = normalMap.Sample(colorSampler, pix.tex0).rgb;
-    normalSample = normalSample * 2.0f - 1.0f; // Expandir
+    normalSample = normalSample * 2.0f - 1.0f; // Expandir de [0,1] a [-1,1]
 
-	// Crear matriz TBN (tangente, binormal, normal) para transformar la normal a espacio mundo
     float3x3 TBN = float3x3(normalize(pix.tangent), normalize(pix.binorm), normalize(pix.normal));
-
-	// Convertir normal del mapa a espacio mundo
     float3 normalWorld = mul(normalSample, TBN);
 
-	// Calcular iluminación difusa usando la normal transformada
-    float3 lightDir = normalize(-DiffuseDirection);
-    float NdotL = saturate(dot(normalWorld, lightDir));
+    // Color de la luz difusa afectado por el tiempo
+    float3 DiffuseColor = float3(1.0f, 1.0f, 1.0f);
+    if (time > 30.0f && time < 60.0f)
+    {
+        DiffuseColor = float3(61.0f / 255.0f, 133.0f / 255.0f, 1.0f); // Azul claro
+    }
 
-    float3 diffuse = saturate(NdotL * DiffuseColor.rgb + ambient);
-	
-	diffuse = saturate(diffuse*DiffuseColor.rgb);
-	diffuse = saturate(diffuse + ambient);
+    // Iluminación difusa
+    float NdotL = saturate(dot(normalWorld, -lightDir));
+    float3 diffuse = saturate(NdotL * DiffuseColor + ambient);
 
-	fColor = float4(textf.rgb * diffuse, 1.0f);
+    fColor = float4(textf.rgb * diffuse, 1.0f);
 
-	return fColor;
+    return fColor;
 }

@@ -34,7 +34,9 @@ private:
 	ID3D11Buffer* indexBuffer;
 
 	ID3D11ShaderResourceView* textura;
+	ID3D11ShaderResourceView* texturaNoche;
 	ID3D11SamplerState* texSampler;
+	ID3D11Buffer* gradientBuffer;
 
 	ID3D11Buffer* matrixBufferCB;
 	MatrixType* matrices;
@@ -46,9 +48,12 @@ private:
 	ID3D11Device** d3dDevice;
 	ID3D11DeviceContext** d3dContext;
 
+	ID3D11Buffer* time;
+	float timeDayNight;
+
 public:
 	SkyDome(int slices, int stacks, float radio, ID3D11Device** d3dDevice,
-		ID3D11DeviceContext** d3dContext, WCHAR* diffuseTex)
+		ID3D11DeviceContext** d3dContext, WCHAR* diffuseTex, WCHAR* _textureNight)
 	{
 		this->slices = slices;
 		this->stacks = stacks;
@@ -57,7 +62,7 @@ public:
 		vertices = NULL;
 		this->d3dDevice = d3dDevice;
 		this->d3dContext = d3dContext;
-		LoadContent(diffuseTex);
+		LoadContent(diffuseTex, _textureNight);
 	}
 
 	~SkyDome()
@@ -91,7 +96,7 @@ public:
 		return true;
 	}
 
-	bool LoadContent(WCHAR* diffuseTex)
+	bool LoadContent(WCHAR* diffuseTex, WCHAR* _diffuseNight)
 	{
 		HRESULT d3dResult;
 
@@ -164,15 +169,15 @@ public:
 		{
 			for (int y = 0; y < stacks; y++)
 			{
-				float u = (float)(((double)((dx - x)*0.5f) / dx) *
+				float u = (float)(((double)((dx - x) * 0.5f) / dx) *
 					sin(D3DX_PI * y * 2.0f / dx)) + 0.5f;
-				float v = (float)(((double)((dy - x)*0.5f) / dy) *
+				float v = (float)(((double)((dy - x) * 0.5f) / dy) *
 					cos(D3DX_PI * y * 2.0 / dy)) + 0.5f;
 
 				int indiceArreglo = x * slices + y;
-				vertices[indiceArreglo].pos = D3DXVECTOR3((float)(radio*cos(((double)x / dx)* D3DX_PI / 2) *
-					cos(2.0 * D3DX_PI * (double)y / dx)), (float)(radio*sin(((double)x / dx) * D3DX_PI / 2)),
-					(float)(radio*cos(((double)x / dy) * D3DX_PI / 2)*sin(2.0f * D3DX_PI * (double)y / dy)));
+				vertices[indiceArreglo].pos = D3DXVECTOR3((float)(radio * cos(((double)x / dx) * D3DX_PI / 2) *
+					cos(2.0 * D3DX_PI * (double)y / dx)), (float)(radio * sin(((double)x / dx) * D3DX_PI / 2)),
+					(float)(radio * cos(((double)x / dy) * D3DX_PI / 2) * sin(2.0f * D3DX_PI * (double)y / dy)));
 				vertices[indiceArreglo].UV = D3DXVECTOR2(u, v);
 			}
 		}
@@ -198,6 +203,7 @@ public:
 		creaIndices();
 
 		d3dResult = D3DX11CreateShaderResourceViewFromFile((*d3dDevice), diffuseTex, 0, 0, &textura, 0);
+		d3dResult = D3DX11CreateShaderResourceViewFromFile((*d3dDevice), _diffuseNight, 0, 0, &texturaNoche, 0);
 
 		if (FAILED(d3dResult))
 		{
@@ -234,6 +240,15 @@ public:
 		{
 			return false;
 		}
+
+		d3dResult = (*d3dDevice)->CreateBuffer(&constDesc, 0, &time);
+		d3dResult = (*d3dDevice)->CreateBuffer(&constDesc, 0, &gradientBuffer);
+
+		if (FAILED(d3dResult))
+		{
+			return false;
+		}
+
 		matrices = new MatrixType;
 
 		return true;
@@ -257,7 +272,12 @@ public:
 			indexBuffer->Release();
 		if (matrixBufferCB)
 			matrixBufferCB->Release();
-
+		if (time)
+			time->Release();
+		if (gradientBuffer)
+			gradientBuffer->Release();
+		time = 0;
+		gradientBuffer = 0;
 		texSampler = 0;
 		textura = 0;
 		solidColorVS = 0;
@@ -276,14 +296,14 @@ public:
 		matrices->projMatrix = projection;
 	}
 
-	void Render(D3DXVECTOR3 trans)
+	void Render(D3DXVECTOR3 trans, float _time, float _gradient)
 	{
 		if (d3dContext == 0)
 			return;
 
 		unsigned int stride = sizeof(SkyComponent);
 		unsigned int offset = 0;
-
+		_gradient;
 		(*d3dContext)->IASetInputLayout(inputLayout);
 		(*d3dContext)->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
 		(*d3dContext)->IASetIndexBuffer(indexBuffer, DXGI_FORMAT_R16_UINT, 0);
@@ -292,6 +312,7 @@ public:
 		(*d3dContext)->VSSetShader(solidColorVS, 0, 0);
 		(*d3dContext)->PSSetShader(solidColorPS, 0, 0);
 		(*d3dContext)->PSSetShaderResources(0, 1, &textura);
+		(*d3dContext)->PSSetShaderResources(1, 1, &texturaNoche);
 		(*d3dContext)->PSSetSamplers(0, 1, &texSampler);
 
 		D3DXMATRIX worldMat;
@@ -301,6 +322,11 @@ public:
 
 		(*d3dContext)->UpdateSubresource(matrixBufferCB, 0, 0, matrices, sizeof(MatrixType), 0);
 		(*d3dContext)->VSSetConstantBuffers(0, 1, &matrixBufferCB);
+
+		(*d3dContext)->UpdateSubresource(time, 0, 0, &_time, sizeof(float), 0);
+		(*d3dContext)->PSSetConstantBuffers(2, 1, &time);
+		(*d3dContext)->UpdateSubresource(gradientBuffer, 0, 0, &_gradient, sizeof(float), 0);
+		(*d3dContext)->PSSetConstantBuffers(3, 1, &gradientBuffer);
 
 		(*d3dContext)->DrawIndexed(cantIndex, 0, 0);
 	}
